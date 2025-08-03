@@ -1,4 +1,4 @@
-import { WithingsApi } from './nodes/WithingsApi.node';
+import { WithingsApi } from './nodes/WithingsApi/WithingsApi.node';
 import { WithingsOAuth2Api } from './credentials/WithingsOAuth2Api.credentials';
 
 export const nodes = [

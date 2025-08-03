@@ -26,5 +26,7 @@
 		"nodes/**/*",
 		"nodes/**/*.json",
 		"package.json",
+		"index.ts",
+		"main.ts"
 	],
 }
