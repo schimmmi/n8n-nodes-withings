@@ -1,0 +1,56 @@
+{
+  "name": "n8n-nodes-withings",
+  "version": "0.1.0",
+  "description": "n8n node for Withings API integration",
+  "keywords": [
+    "n8n-community-node-package",
+    "withings",
+    "health",
+    "fitness"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/schimmmi/n8n-nodes-withings",
+  "author": {
+    "name": "Jürgen Schilling",
+    "email": "alschimmi@googlemail.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/schimmmi/n8n-nodes-withings.git"
+  },
+  "engines": {
+    "node": ">=20.15"
+  },
+  "main": "index.js",
+  "scripts": {
+    "build": "npx rimraf dist && tsc && gulp build:icons",
+    "dev": "tsc --watch",
+    "format": "prettier nodes credentials --write",
+    "lint": "eslint nodes credentials package.json",
+    "lintfix": "eslint nodes credentials package.json --fix",
+    "prepublishOnly": "npm run build && npm run lint -c .eslintrc.prepublish.js nodes credentials package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [
+      "dist/credentials/WithingsOAuth2Api.credentials.js"
+    ],
+    "nodes": [
+      "dist/nodes/WithingsApi/WithingsApi.node.js"
+    ]
+  },
+  "devDependencies": {
+    "@typescript-eslint/parser": "~8.32.0",
+    "eslint": "^8.57.0",
+    "eslint-plugin-n8n-nodes-base": "^1.16.3",
+    "gulp": "^5.0.0",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.2"
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  }
+}
