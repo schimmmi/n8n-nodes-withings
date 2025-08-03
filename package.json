@@ -19,7 +19,7 @@
     "url": "https://github.com/schimmmi/n8n-nodes-withings.git"
   },
   "engines": {
-    "node": ">=20.15"
+    "node": ">=18.19.1"
   },
   "main": "index.js",
   "scripts": {

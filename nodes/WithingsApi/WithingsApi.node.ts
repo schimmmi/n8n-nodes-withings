@@ -2,6 +2,7 @@ import {
   INodeType,
   INodeTypeDescription,
   IExecuteFunctions,
+  NodeConnectionType,
 } from 'n8n-workflow';
 
 export class WithingsApi implements INodeType {
@@ -14,8 +15,8 @@ export class WithingsApi implements INodeType {
     defaults: {
       name: 'Withings API',
     },
-    inputs: ['main'],
-    outputs: ['main'],
+    inputs: [NodeConnectionType.Main],
+    outputs: [NodeConnectionType.Main],
     credentials: [
       {
         name: 'withingsOAuth2Api',
@@ -35,6 +36,6 @@ export class WithingsApi implements INodeType {
   async execute(this: IExecuteFunctions) {
     const returnItems = [];
     returnItems.push({ json: { success: true } });
-    return returnItems;
+    return [returnItems];
   }
 }
