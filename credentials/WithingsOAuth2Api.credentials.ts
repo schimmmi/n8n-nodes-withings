@@ -7,6 +7,8 @@ import {
   IHttpRequestOptions,
   IDataObject,
 } from 'n8n-workflow';
+import * as https from 'https';
+import * as process from 'process';
 
 import { generateSignature, getNonce } from '../utils/withings';
 
@@ -99,7 +101,7 @@ export class WithingsOAuth2Api implements ICredentialType {
             credentials.clientSecret as string,
             async (options) => {
               // Use a simple HTTP request without external dependencies
-              const http = require('https');
+              const http = https;
 
               return new Promise((resolve, reject) => {
                 const requestOptions = {

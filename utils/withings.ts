@@ -1,6 +1,6 @@
-// Use require instead of import for crypto to avoid TypeScript issues
-const crypto = require('crypto');
 import { IHttpRequestOptions } from 'n8n-workflow';
+import * as crypto from 'crypto';
+import * as process from 'process';
 
 /**
  * Format scope for Withings OAuth2
