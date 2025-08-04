@@ -54,10 +54,16 @@ This node handles these requirements automatically through a custom authenticati
    - Explicitly specifies refresh_token in the grant type
    - Includes the refresh token in token refresh requests
    - Ensures proper token synchronization between requests
-3. **Smart Retry Logic**: If a token error occurs, the node uses an intelligent retry mechanism with:
-   - Enhanced error detection for various token-related errors
+3. **Ultra-Aggressive Token Validation**: Multiple validation strategies are employed before each API request:
+   - Pre-request validation with up to 3 attempts using different endpoints
+   - Direct token refresh before starting the main request cycle
+   - Token state tracking to ensure validity throughout the request lifecycle
+   - Cache-busting timestamps to prevent stale token issues
+4. **Smart Retry Logic**: If a token error occurs, the node uses an intelligent retry mechanism with:
+   - Enhanced error detection for various token-related errors (12+ patterns)
    - Exponential backoff with jitter to prevent request storms
    - Multiple refresh attempts with increasing delays
+   - Structured approach with 4 different endpoint strategies
    - Detailed logging of token errors and retry attempts
    - Graceful failure with informative error messages after multiple attempts
 
@@ -115,6 +121,7 @@ Most operations support the following parameters:
 
 ## Version History
 
+- 0.4.8: Implemented ultra-aggressive token refresh with multiple validation strategies and enhanced error recovery
 - 0.4.7: Fixed "Unable to sign without access token" error with enhanced token validation and multi-stage refresh strategy
 - 0.4.6: Improved refresh token handling with explicit refresh token grant type and better token synchronization
 - 0.4.5: Enhanced token validation and authentication with pre-request validation and improved error handling
