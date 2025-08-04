@@ -110,6 +110,7 @@ Most operations support the following parameters:
 
 ## Version History
 
+- 0.4.4: Fixed "Unable to sign without access token" error with improved token synchronization
 - 0.4.3: Enhanced token error detection and improved retry mechanism with smart backoff
 - 0.4.2: Improved token refresh handling with exponential backoff retry mechanism
 - 0.4.1: Added support for Withings' 30-second token expiration with automatic refresh

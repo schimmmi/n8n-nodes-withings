@@ -449,6 +449,17 @@ export class WithingsApi implements INodeType {
 
         while (retries < maxRetries) {
           try {
+            // Force a small delay before the first request to ensure token is ready
+            if (retries > 0) {
+              // Exponential backoff with jitter for more effective retries
+              const jitter = Math.random() * 0.3 + 0.85; // Random value between 0.85 and 1.15
+              const delay = Math.floor(baseDelay * Math.pow(2, retries - 1) * jitter);
+              await sleep(delay);
+            } else {
+              // Small initial delay to ensure token is ready
+              await sleep(100);
+            }
+
             response = await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', options);
             break; // Success, exit the loop
           } catch (error) {
@@ -457,26 +468,21 @@ export class WithingsApi implements INodeType {
                 error.message.includes('token') ||
                 error.message.includes('sign') ||
                 error.message.includes('auth') ||
-                error.message.includes('unauthorized')
+                error.message.includes('unauthorized') ||
+                error.message.includes('expired')
             )) {
               retries++;
 
               if (retries >= maxRetries) {
                 throw new NodeApiError(this.getNode(), error, {
-                  message: `Failed after ${maxRetries} attempts: ${error.message}. The token may be invalid or revoked.`
+                  message: `Failed after ${maxRetries} attempts: ${error.message}. The token may be invalid or revoked. Please reconnect your Withings account.`
                 });
               }
-
-              // Exponential backoff with jitter for more effective retries
-              const jitter = Math.random() * 0.3 + 0.85; // Random value between 0.85 and 1.15
-              const delay = Math.floor(baseDelay * Math.pow(2, retries - 1) * jitter);
 
               // Log token error (commented out as console.log is not available in this context)
               // For debugging, uncomment: this.logger.debug(`Token error detected: "${error.message}". Retrying in ${delay}ms (attempt ${retries}/${maxRetries})`);
 
-              // Wait with exponential backoff before retrying
-              await sleep(delay);
-              continue; // Try again
+              continue; // Try again with delay at the beginning of the loop
             } else {
               throw error; // Not a token error, rethrow
             }

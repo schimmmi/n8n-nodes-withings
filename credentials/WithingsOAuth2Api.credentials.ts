@@ -73,8 +73,11 @@ export class WithingsOAuth2Api implements ICredentialType {
       },
     ],
     // Force token refresh before the 30-second expiration
-    expiresIn: 25, // Set to 25 seconds to refresh before the 30-second expiration
+    expiresIn: 20, // Set to 20 seconds to refresh well before the 30-second expiration
     autoRefresh: true,
+    // Ensure proper token format and handling
+    format: 'json',
+    property: 'body',
   };
 
   // Define how to authenticate requests
