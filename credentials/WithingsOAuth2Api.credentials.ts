@@ -39,10 +39,10 @@ export class WithingsOAuth2Api implements ICredentialType {
       default: 'https://account.withings.com/oauth2_user/authorize2',
     },
     {
-      displayName: 'Token URL',
+      displayName: 'Access Token URL',
       name: 'tokenUrl',
       type: 'hidden',
-      default: 'https://wbsapi.withings.net/v2/oauth2',
+      default: 'https://wbsapi.withings.net/v2/oauth2?action=requesttoken',
     },
     {
       displayName: 'Scope',
@@ -79,11 +79,8 @@ export class WithingsOAuth2Api implements ICredentialType {
   authenticate: IAuthenticateGeneric = {
     type: 'generic',
     properties: {
-      qs: {
-        action: '={{$credentials.action}}',
-        client_id: '={{$credentials.clientId}}',
-        client_secret: '={{$credentials.clientSecret}}',
-        grant_type: '={{$credentials.grantType}}',
+      headers: {
+        Authorization: '=Bearer {{$credentials.accessToken}}',
       },
     },
   };

@@ -90,6 +90,7 @@ Most operations support the following parameters:
 
 ## Version History
 
+- 0.3.0: Fixed authentication issues with OAuth2 implementation
 - 0.2.0: Complete implementation of Withings API with all resources and operations
 - 0.1.0: Initial release with OAuth2 authentication support
 
