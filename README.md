@@ -47,7 +47,16 @@ The Withings API has some special requirements for OAuth2 authentication:
 - Token exchange requires specific formatting of the request body
 - **Access tokens expire after 30 seconds** and need to be refreshed frequently
 
-This node handles these requirements automatically through a custom authentication implementation. The token refresh is managed automatically, and the node includes retry logic to handle any token expiration issues during API requests.
+This node handles these requirements automatically through a custom authentication implementation. The token refresh is managed automatically with the following mechanisms:
+
+1. **Proactive Token Refresh**: Tokens are refreshed 5 seconds before their 30-second expiration
+2. **Smart Retry Logic**: If a token error occurs, the node uses an intelligent retry mechanism with:
+   - Enhanced error detection for various token-related errors
+   - Exponential backoff with jitter to prevent request storms
+   - Detailed logging of token errors and retry attempts
+   - Graceful failure with informative error messages after multiple attempts
+
+These mechanisms work together to ensure reliable API communication even with Withings' short-lived tokens.
 
 ## Usage
 
@@ -101,6 +110,8 @@ Most operations support the following parameters:
 
 ## Version History
 
+- 0.4.3: Enhanced token error detection and improved retry mechanism with smart backoff
+- 0.4.2: Improved token refresh handling with exponential backoff retry mechanism
 - 0.4.1: Added support for Withings' 30-second token expiration with automatic refresh
 - 0.4.0: Fixed empty Access Token URL field by using correct field name (accessTokenUrl)
 - 0.3.9: Fixed "Unable to sign without access token" error in sleep summary endpoint
