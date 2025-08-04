@@ -3,6 +3,7 @@ import {
   INodeProperties,
   ICredentialTestRequest,
   Icon,
+  IAuthenticateGeneric,
 } from 'n8n-workflow';
 
 export class WithingsOAuth2Api implements ICredentialType {
@@ -71,6 +72,16 @@ export class WithingsOAuth2Api implements ICredentialType {
         },
       },
     ],
+  };
+
+  // Define how to authenticate requests
+  authenticate: IAuthenticateGeneric = {
+    type: 'generic',
+    properties: {
+      headers: {
+        Authorization: '=Bearer {{$credentials.accessToken}}',
+      },
+    },
   };
 
   test: ICredentialTestRequest = {

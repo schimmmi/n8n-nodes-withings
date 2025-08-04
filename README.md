@@ -100,6 +100,7 @@ Most operations support the following parameters:
 
 ## Version History
 
+- 0.3.8: Fixed "Unable to sign without access token" error in sleep data endpoint
 - 0.3.7: Changed credential type from genericAuth to oAuth2Api to enable Connect button
 - 0.3.6: Implemented special Withings OAuth2 requirements with custom token exchange
 - 0.3.5: Fixed empty Access Token URL field in credentials
