@@ -78,6 +78,10 @@ export class WithingsOAuth2Api implements ICredentialType {
     // Ensure proper token format and handling
     format: 'json',
     property: 'body',
+    // Explicitly set the refresh token grant type for token refresh
+    refreshGrantType: 'refresh_token',
+    // Include the refresh token in the body of the refresh request
+    includeRefreshToken: true,
   };
 
   // Define how to authenticate requests
@@ -86,6 +90,9 @@ export class WithingsOAuth2Api implements ICredentialType {
     properties: {
       headers: {
         Authorization: '=Bearer {{$credentials.accessToken}}',
+      },
+      qs: {
+        // Include any query parameters needed for authentication
       },
     },
   };

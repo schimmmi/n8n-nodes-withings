@@ -440,6 +440,11 @@ export class WithingsApi implements INodeType {
           url: `https://wbsapi.withings.net${endpoint}`,
           qs,
           json: true,
+          // Ensure proper headers are set for authentication
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
         };
 
         let response;
@@ -447,17 +452,36 @@ export class WithingsApi implements INodeType {
         const maxRetries = 5; // Increased max retries
         const baseDelay = 1000; // Base delay in milliseconds
 
+        // Pre-validate token before starting the request cycle
+        try {
+          // Make a simple request to validate the token
+          await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', {
+            method: 'GET',
+            url: 'https://wbsapi.withings.net/v2/user',
+            qs: { action: 'getdevice' },
+            json: true,
+            headers: {
+              'Accept': 'application/json',
+            },
+          });
+          // If successful, token is valid
+          await sleep(300); // Wait a bit before the main request
+        } catch (validationError) {
+          // Token might be invalid, but we'll continue with the retry logic
+          await sleep(500); // Wait longer before starting the retry cycle
+        }
+
         while (retries < maxRetries) {
           try {
-            // Force a small delay before the first request to ensure token is ready
+            // Always add a delay to ensure token is ready and synchronized
             if (retries > 0) {
               // Exponential backoff with jitter for more effective retries
               const jitter = Math.random() * 0.3 + 0.85; // Random value between 0.85 and 1.15
               const delay = Math.floor(baseDelay * Math.pow(2, retries - 1) * jitter);
               await sleep(delay);
             } else {
-              // Small initial delay to ensure token is ready
-              await sleep(100);
+              // Increased initial delay to ensure token is ready and properly synchronized
+              await sleep(500);
             }
 
             response = await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', options);
@@ -465,22 +489,62 @@ export class WithingsApi implements INodeType {
           } catch (error) {
             // Check if this is a token expiration error
             if (error.message && (
-                error.message.includes('token') ||
-                error.message.includes('sign') ||
-                error.message.includes('auth') ||
-                error.message.includes('unauthorized') ||
-                error.message.includes('expired')
+                error.message.toLowerCase().includes('token') ||
+                error.message.toLowerCase().includes('sign') ||
+                error.message.toLowerCase().includes('auth') ||
+                error.message.toLowerCase().includes('unauthorized') ||
+                error.message.toLowerCase().includes('expired') ||
+                error.message.toLowerCase().includes('authentication') ||
+                error.message.toLowerCase().includes('credentials')
             )) {
               retries++;
 
               if (retries >= maxRetries) {
                 throw new NodeApiError(this.getNode(), error, {
-                  message: `Failed after ${maxRetries} attempts: ${error.message}. The token may be invalid or revoked. Please reconnect your Withings account.`
+                  message: `Failed after ${maxRetries} attempts: ${error.message}. The token may be invalid or revoked. Please try the following:
+                  1. Reconnect your Withings account in the credentials
+                  2. Ensure your Withings Developer account is active
+                  3. Check that your application has the required scopes`
                 });
               }
 
               // Log token error (commented out as console.log is not available in this context)
               // For debugging, uncomment: this.logger.debug(`Token error detected: "${error.message}". Retrying in ${delay}ms (attempt ${retries}/${maxRetries})`);
+
+              // Try to force a token refresh by making a simple test request
+              if (retries === 1) {
+                try {
+                  // This will trigger a token refresh if needed
+                  await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', {
+                    method: 'GET',
+                    url: 'https://wbsapi.withings.net/v2/user',
+                    qs: { action: 'getdevice' },
+                    json: true,
+                    headers: {
+                      'Accept': 'application/json',
+                    },
+                  });
+                } catch (refreshError) {
+                  // If refresh token attempt fails, try a different approach
+                  // Wait longer to allow the built-in token refresh mechanism to work
+                  await sleep(2000);
+
+                  // Make another validation request to trigger the built-in refresh
+                  try {
+                    await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', {
+                      method: 'GET',
+                      url: 'https://wbsapi.withings.net/v2/user',
+                      qs: { action: 'getdevice' },
+                      json: true,
+                      headers: {
+                        'Accept': 'application/json',
+                      },
+                    });
+                  } catch (secondRefreshError) {
+                    // Ignore errors from the second refresh attempt
+                  }
+                }
+              }
 
               continue; // Try again with delay at the beginning of the loop
             } else {

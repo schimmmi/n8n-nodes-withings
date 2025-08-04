@@ -49,10 +49,15 @@ The Withings API has some special requirements for OAuth2 authentication:
 
 This node handles these requirements automatically through a custom authentication implementation. The token refresh is managed automatically with the following mechanisms:
 
-1. **Proactive Token Refresh**: Tokens are refreshed 5 seconds before their 30-second expiration
-2. **Smart Retry Logic**: If a token error occurs, the node uses an intelligent retry mechanism with:
+1. **Proactive Token Refresh**: Tokens are refreshed 10 seconds before their 30-second expiration
+2. **Explicit Refresh Token Handling**: The implementation uses the refresh_token grant type to properly refresh tokens:
+   - Explicitly specifies refresh_token in the grant type
+   - Includes the refresh token in token refresh requests
+   - Ensures proper token synchronization between requests
+3. **Smart Retry Logic**: If a token error occurs, the node uses an intelligent retry mechanism with:
    - Enhanced error detection for various token-related errors
    - Exponential backoff with jitter to prevent request storms
+   - Multiple refresh attempts with increasing delays
    - Detailed logging of token errors and retry attempts
    - Graceful failure with informative error messages after multiple attempts
 
@@ -110,6 +115,8 @@ Most operations support the following parameters:
 
 ## Version History
 
+- 0.4.6: Improved refresh token handling with explicit refresh token grant type and better token synchronization
+- 0.4.5: Enhanced token validation and authentication with pre-request validation and improved error handling
 - 0.4.4: Fixed "Unable to sign without access token" error with improved token synchronization
 - 0.4.3: Enhanced token error detection and improved retry mechanism with smart backoff
 - 0.4.2: Improved token refresh handling with exponential backoff retry mechanism
