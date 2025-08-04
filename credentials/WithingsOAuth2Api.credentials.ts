@@ -8,8 +8,8 @@ import {
   IDataObject,
 } from 'n8n-workflow';
 // Use Node.js built-in modules with type declarations
-import https from 'node:https';
-import process from 'node:process';
+import * as https from 'https';
+import * as process from 'process';
 
 import { generateSignature, getNonce } from '../utils/withings';
 
