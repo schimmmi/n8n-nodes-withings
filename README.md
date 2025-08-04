@@ -90,6 +90,7 @@ Most operations support the following parameters:
 
 ## Version History
 
+- 0.3.4: Fixed "Unable to sign without access token" error in OAuth2 authentication
 - 0.3.3: Made OAuth2 URLs hidden in the credentials UI for cleaner interface
 - 0.3.2: Improved compatibility with n8n 1.104.2 for OAuth2 credential fields
 - 0.3.1: Fixed Access Token URL field visibility in credentials
