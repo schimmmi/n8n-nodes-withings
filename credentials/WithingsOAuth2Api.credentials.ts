@@ -28,7 +28,7 @@ export class WithingsOAuth2Api implements ICredentialType {
     },
     {
       displayName: 'Access Token URL',
-      name: 'tokenUrl',
+      name: 'accessTokenUrl',
       type: 'hidden',
       default: 'https://wbsapi.withings.net/v2/oauth2?action=requesttoken',
     },
@@ -72,6 +72,9 @@ export class WithingsOAuth2Api implements ICredentialType {
         },
       },
     ],
+    // Force token refresh before the 30-second expiration
+    expiresIn: 25, // Set to 25 seconds to refresh before the 30-second expiration
+    autoRefresh: true,
   };
 
   // Define how to authenticate requests

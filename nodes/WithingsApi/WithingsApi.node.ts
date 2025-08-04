@@ -7,6 +7,7 @@ import {
   INodeExecutionData,
   IHttpRequestOptions,
   NodeApiError,
+  sleep,
 } from 'n8n-workflow';
 
 export class WithingsApi implements INodeType {
@@ -441,7 +442,19 @@ export class WithingsApi implements INodeType {
           json: true,
         };
 
-        const response = await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', options);
+        let response;
+        try {
+          response = await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', options);
+        } catch (error) {
+          // Check if this is a token expiration error
+          if (error.message && error.message.includes('token')) {
+            // Try one more time after a short delay to allow token refresh
+            await sleep(1000);
+            response = await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', options);
+          } else {
+            throw error;
+          }
+        }
 
         // Check if the response contains an error
         if (response.status !== 0) {

@@ -45,8 +45,9 @@ The Withings API has some special requirements for OAuth2 authentication:
 - The token request requires an additional `action=requesttoken` parameter
 - Authentication for API requests uses Bearer token in the Authorization header
 - Token exchange requires specific formatting of the request body
+- **Access tokens expire after 30 seconds** and need to be refreshed frequently
 
-This node handles these requirements automatically through a custom authentication implementation.
+This node handles these requirements automatically through a custom authentication implementation. The token refresh is managed automatically, and the node includes retry logic to handle any token expiration issues during API requests.
 
 ## Usage
 
@@ -100,6 +101,8 @@ Most operations support the following parameters:
 
 ## Version History
 
+- 0.4.1: Added support for Withings' 30-second token expiration with automatic refresh
+- 0.4.0: Fixed empty Access Token URL field by using correct field name (accessTokenUrl)
 - 0.3.9: Fixed "Unable to sign without access token" error in sleep summary endpoint
 - 0.3.8: Fixed "Unable to sign without access token" error in sleep data endpoint
 - 0.3.7: Changed credential type from genericAuth to oAuth2Api to enable Connect button
