@@ -4,7 +4,11 @@ import {
   ICredentialTestRequest,
   Icon,
   IAuthenticateGeneric,
+  IHttpRequestOptions,
+  IDataObject,
 } from 'n8n-workflow';
+
+import { generateSignature, getNonce } from '../utils/withings';
 
 export class WithingsOAuth2Api implements ICredentialType {
   name = 'withingsOAuth2Api';
@@ -55,8 +59,8 @@ export class WithingsOAuth2Api implements ICredentialType {
       displayName: 'Scope',
       name: 'scope',
       type: 'string',
-      default: 'user.info,user.metrics,user.activity,user.sleepevents',
-      description: 'Comma-separated list of scopes. Common scopes: user.info, user.metrics, user.activity, user.sleepevents',
+      default: 'info,metrics,activity,sleepevents',
+      description: 'Comma-separated list of scopes without the "user." prefix (added automatically). Common scopes: info, metrics, activity, sleepevents',
     },
   ];
 
@@ -66,24 +70,97 @@ export class WithingsOAuth2Api implements ICredentialType {
     // Include credentials in the refresh request body
     includeCredentialsOnRefreshOnBody: true,
 
-    // Pre-send modifications for token requests
-    preSend: [
-      {
-        // Add action=requesttoken parameter to token request - required by Withings
-        type: 'body',
-        properties: {
-          action: 'requesttoken',
-        },
-      },
-      {
-        // Add headers to prevent caching issues
-        type: 'headers',
-        properties: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-        },
-      },
-    ],
+    // Pre-send modifications for token requests with signature and nonce
+    preSend: async (requestOptions: IHttpRequestOptions, credentials: IDataObject) => {
+      // Add action=requesttoken parameter to token request - required by Withings
+      if (!requestOptions.body) {
+        requestOptions.body = {};
+      }
+
+      // Use type assertion to tell TypeScript that body is an object with properties
+      const bodyObj = requestOptions.body as Record<string, any>;
+      bodyObj.action = 'requesttoken';
+
+      // Add headers to prevent caching issues
+      if (!requestOptions.headers) {
+        requestOptions.headers = {};
+      }
+
+      requestOptions.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+      requestOptions.headers['Pragma'] = 'no-cache';
+      requestOptions.headers['Expires'] = '0';
+
+      // Add signature and nonce for enhanced security if we have client credentials
+      if (credentials.clientId && credentials.clientSecret) {
+        try {
+          // Get a nonce from Withings API
+          const nonce = await getNonce(
+            credentials.clientId as string,
+            credentials.clientSecret as string,
+            async (options) => {
+              // Use a simple HTTP request without external dependencies
+              const http = require('https');
+
+              return new Promise((resolve, reject) => {
+                const requestOptions = {
+                  method: options.method,
+                  headers: {
+                    'Content-Type': 'application/json',
+                    ...options.headers,
+                  },
+                };
+
+                const req = http.request(options.url, requestOptions, (res: any) => {
+                  let data = '';
+
+                  res.on('data', (chunk: any) => {
+                    data += chunk;
+                  });
+
+                  res.on('end', () => {
+                    try {
+                      const parsedData = JSON.parse(data);
+                      resolve({ body: parsedData.body });
+                    } catch (e) {
+                      reject(e);
+                    }
+                  });
+                });
+
+                req.on('error', (error: any) => {
+                  reject(error);
+                });
+
+                if (options.body) {
+                  req.write(JSON.stringify(options.body));
+                }
+
+                req.end();
+              });
+            }
+          );
+
+          // Add nonce to the request
+          bodyObj.nonce = nonce;
+
+          // Generate and add signature
+          bodyObj.signature = generateSignature(
+            'requesttoken',
+            credentials.clientId as string,
+            credentials.clientSecret as string,
+            nonce
+          );
+        } catch (error) {
+          // Use a safer approach than console.error for TypeScript compatibility
+          if (process && process.stderr && process.stderr.write) {
+            process.stderr.write(`Error adding signature and nonce: ${error}\n`);
+          }
+          // Continue without signature if there's an error
+        }
+      }
+
+      return requestOptions;
+    },
 
     // Force token refresh before the 30-second expiration
     // Set to 15 seconds to refresh well before the 30-second expiration

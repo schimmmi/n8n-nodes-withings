@@ -46,16 +46,24 @@ The Withings API has some special requirements for OAuth2 authentication:
 - Authentication for API requests uses Bearer token in the Authorization header
 - Token exchange requires specific formatting of the request body
 - **Access tokens expire after 30 seconds** and need to be refreshed frequently
+- **Signature generation and nonce retrieval** are required for enhanced security
 
 This node handles these requirements automatically through a custom authentication implementation. The token refresh is managed automatically with the following mechanisms:
 
-1. **Super-Aggressive Token Refresh**: Tokens are refreshed 15 seconds before their 30-second expiration (previously 10 seconds)
-2. **Explicit Refresh Token Handling**: The implementation uses the refresh_token grant type to properly refresh tokens:
+1. **Enhanced Security with Signatures**: The implementation uses HMAC-SHA256 signatures and nonces for secure authentication:
+   - Retrieves a nonce from the Withings API before token requests
+   - Generates cryptographic signatures for authentication requests
+   - Properly formats request parameters according to Withings requirements
+   - Handles scope formatting with proper "user." prefixes
+   - Gracefully falls back to standard authentication if signature generation fails
+
+2. **Super-Aggressive Token Refresh**: Tokens are refreshed 15 seconds before their 30-second expiration (previously 10 seconds)
    - Explicitly specifies refresh_token in the grant type
    - Includes the refresh token in token refresh requests
    - Ensures proper token synchronization between requests
    - Specifies the refresh token key name for precise handling
    - Includes scopes during refresh for complete token state
+
 3. **Extreme Token Validation**: Multiple validation strategies are employed before each API request:
    - Pre-request validation with up to 7 attempts using different endpoints (increased from 5)
    - Multiple direct token refresh attempts with 5 different fallback strategies (increased from 3)
@@ -63,6 +71,7 @@ This node handles these requirements automatically through a custom authenticati
    - Cache-busting timestamps with enhanced randomization to prevent stale token issues
    - Comprehensive cache prevention headers with Expires and Pragma directives
    - Unique request IDs for better tracking and cache prevention
+
 4. **Advanced Retry Logic**: If a token error occurs, the node uses an intelligent retry mechanism with:
    - Enhanced error detection for 25+ token-related error patterns (increased from 20+)
    - Exponential backoff with improved jitter for more effective retries
@@ -126,6 +135,7 @@ Most operations support the following parameters:
 
 ## Version History
 
+- 0.6.0: Implemented signature generation and nonce retrieval for enhanced security based on withings-node-oauth2 library
 - 0.5.0: Implemented super-aggressive token handling with extreme validation and enhanced error recovery
 - 0.4.9: Implemented hyper-aggressive token handling with extreme validation and synchronization mechanisms
 - 0.4.8: Implemented ultra-aggressive token refresh with multiple validation strategies and enhanced error recovery
