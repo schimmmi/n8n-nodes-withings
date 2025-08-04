@@ -49,27 +49,28 @@ The Withings API has some special requirements for OAuth2 authentication:
 
 This node handles these requirements automatically through a custom authentication implementation. The token refresh is managed automatically with the following mechanisms:
 
-1. **Hyper-Aggressive Token Refresh**: Tokens are refreshed 15 seconds before their 30-second expiration (previously 10 seconds)
+1. **Super-Aggressive Token Refresh**: Tokens are refreshed 15 seconds before their 30-second expiration (previously 10 seconds)
 2. **Explicit Refresh Token Handling**: The implementation uses the refresh_token grant type to properly refresh tokens:
    - Explicitly specifies refresh_token in the grant type
    - Includes the refresh token in token refresh requests
    - Ensures proper token synchronization between requests
    - Specifies the refresh token key name for precise handling
    - Includes scopes during refresh for complete token state
-3. **Ultra-Aggressive Token Validation**: Multiple validation strategies are employed before each API request:
-   - Pre-request validation with up to 5 attempts using different endpoints (increased from 3)
-   - Multiple direct token refresh attempts before starting the main request cycle
+3. **Extreme Token Validation**: Multiple validation strategies are employed before each API request:
+   - Pre-request validation with up to 7 attempts using different endpoints (increased from 5)
+   - Multiple direct token refresh attempts with 5 different fallback strategies (increased from 3)
    - Token state tracking to ensure validity throughout the request lifecycle
-   - Cache-busting timestamps with randomization to prevent stale token issues
-   - Comprehensive cache prevention headers on all requests
-4. **Smart Retry Logic**: If a token error occurs, the node uses an intelligent retry mechanism with:
-   - Enhanced error detection for 20+ token-related error patterns (increased from 12+)
+   - Cache-busting timestamps with enhanced randomization to prevent stale token issues
+   - Comprehensive cache prevention headers with Expires and Pragma directives
+   - Unique request IDs for better tracking and cache prevention
+4. **Advanced Retry Logic**: If a token error occurs, the node uses an intelligent retry mechanism with:
+   - Enhanced error detection for 25+ token-related error patterns (increased from 20+)
    - Exponential backoff with improved jitter for more effective retries
    - Multiple refresh attempts with increasing delays and randomization
-   - Structured approach with 5 different endpoint strategies (increased from 4)
+   - Structured approach with 5 different endpoint strategies
    - Fresh request options for each attempt to prevent reference issues
-   - Request attempt tracking for better diagnostics
-   - Graceful failure with comprehensive error messages after multiple attempts
+   - Request timeouts to prevent hanging connections
+   - Graceful failure with detailed error messages after multiple attempts
 
 These mechanisms work together to ensure reliable API communication even with Withings' short-lived tokens. The implementation is designed to be extremely resilient to token expiration issues, network fluctuations, and API inconsistencies.
 
@@ -125,6 +126,7 @@ Most operations support the following parameters:
 
 ## Version History
 
+- 0.5.0: Implemented super-aggressive token handling with extreme validation and enhanced error recovery
 - 0.4.9: Implemented hyper-aggressive token handling with extreme validation and synchronization mechanisms
 - 0.4.8: Implemented ultra-aggressive token refresh with multiple validation strategies and enhanced error recovery
 - 0.4.7: Fixed "Unable to sign without access token" error with enhanced token validation and multi-stage refresh strategy

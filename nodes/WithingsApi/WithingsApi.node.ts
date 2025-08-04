@@ -443,83 +443,127 @@ export class WithingsApi implements INodeType {
         const maxRetries = 5; // Increased max retries
         const baseDelay = 1000; // Base delay in milliseconds
 
-        // Ultra-aggressive token validation and refresh before starting the request cycle
+        // Hyper-aggressive token validation and refresh before starting the request cycle
         // First, force a token refresh by making a simple request with multiple attempts
-        for (let preValidationAttempt = 0; preValidationAttempt < 5; preValidationAttempt++) { // Increased to 5 attempts
+        for (let preValidationAttempt = 0; preValidationAttempt < 7; preValidationAttempt++) { // Increased to 7 attempts
           try {
             // Make a simple request to validate and refresh the token
+            // Add a unique timestamp and random value to prevent any caching
+            const uniqueTimestamp = Date.now() + Math.floor(Math.random() * 1000);
             await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', {
               method: 'GET',
               url: 'https://wbsapi.withings.net/v2/user',
               qs: {
                 action: 'getdevice',
-                _ts: Date.now(), // Add timestamp to prevent caching
+                _ts: uniqueTimestamp, // Add unique timestamp to prevent caching
               },
               json: true,
               headers: {
                 'Accept': 'application/json',
-                'Cache-Control': 'no-cache, no-store', // Prevent caching
+                'Cache-Control': 'no-cache, no-store, must-revalidate', // Enhanced cache prevention
+                'Pragma': 'no-cache',
+                'Expires': '0',
+                'X-Request-ID': `validation-${uniqueTimestamp}`, // Add unique request ID
               },
+              // Add timeout to prevent hanging
+              timeout: 10000,
             });
 
             // If successful, token is valid - wait longer to ensure token is fully synchronized
-            await sleep(1500); // Increased wait time
+            await sleep(2000); // Increased wait time further
 
             // Success - break out of the pre-validation loop
             break;
           } catch (validationError) {
             // If this is the last attempt and it failed, wait longer before continuing
-            if (preValidationAttempt === 4) { // Adjusted for 5 attempts
-              await sleep(3000); // Increased wait time
+            if (preValidationAttempt === 6) { // Adjusted for 7 attempts
+              await sleep(4000); // Increased wait time further
               continue;
             }
 
-            // Wait between validation attempts with increasing delay
-            await sleep(1500 * (preValidationAttempt + 1)); // Increased wait time
+            // Wait between validation attempts with increasing delay and jitter
+            const jitter = Math.random() * 0.4 + 0.8; // Random value between 0.8 and 1.2
+            await sleep(1800 * Math.pow(1.5, preValidationAttempt) * jitter); // Enhanced exponential backoff
 
             // Try a different endpoint for the next validation attempt
             try {
-              // Try a different endpoint with timestamp to prevent caching
+              // Try a different endpoint with unique timestamp to prevent caching
+              const uniqueTimestamp = Date.now() + Math.floor(Math.random() * 1000);
               await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', {
                 method: 'GET',
                 url: 'https://wbsapi.withings.net/v2/measure',
                 qs: {
                   action: 'getactivity',
-                  _ts: Date.now(), // Add timestamp to prevent caching
+                  _ts: uniqueTimestamp, // Add unique timestamp to prevent caching
                 },
                 json: true,
                 headers: {
                   'Accept': 'application/json',
-                  'Cache-Control': 'no-cache, no-store', // Prevent caching
+                  'Cache-Control': 'no-cache, no-store, must-revalidate', // Enhanced cache prevention
+                  'Pragma': 'no-cache',
+                  'Expires': '0',
+                  'X-Request-ID': `validation-alt-${uniqueTimestamp}`, // Add unique request ID
                 },
+                timeout: 10000, // Add timeout
               });
 
               // If this alternate request succeeds, wait longer and break out
-              await sleep(1500); // Increased wait time
+              await sleep(2000); // Increased wait time
               break;
             } catch (alternateValidationError) {
               // Try a third endpoint as another fallback
               try {
+                const uniqueTimestamp = Date.now() + Math.floor(Math.random() * 1000);
                 await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', {
                   method: 'GET',
                   url: 'https://wbsapi.withings.net/v2/sleep',
                   qs: {
                     action: 'get',
-                    _ts: Date.now(), // Add timestamp to prevent caching
+                    _ts: uniqueTimestamp, // Add unique timestamp to prevent caching
                   },
                   json: true,
                   headers: {
                     'Accept': 'application/json',
-                    'Cache-Control': 'no-cache, no-store', // Prevent caching
+                    'Cache-Control': 'no-cache, no-store, must-revalidate', // Enhanced cache prevention
+                    'Pragma': 'no-cache',
+                    'Expires': '0',
+                    'X-Request-ID': `validation-third-${uniqueTimestamp}`, // Add unique request ID
                   },
+                  timeout: 10000, // Add timeout
                 });
 
                 // If this third attempt succeeds, wait and break out
-                await sleep(1500);
+                await sleep(2000); // Increased wait time
                 break;
               } catch (thirdValidationError) {
-                // Continue to the next attempt or to the main request cycle
-                await sleep(2000); // Increased wait time
+                // Try a fourth endpoint as a final fallback before continuing
+                try {
+                  const uniqueTimestamp = Date.now() + Math.floor(Math.random() * 1000);
+                  await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', {
+                    method: 'GET',
+                    url: 'https://wbsapi.withings.net/notify',
+                    qs: {
+                      action: 'list',
+                      _ts: uniqueTimestamp, // Add unique timestamp to prevent caching
+                    },
+                    json: true,
+                    headers: {
+                      'Accept': 'application/json',
+                      'Cache-Control': 'no-cache, no-store, must-revalidate', // Enhanced cache prevention
+                      'Pragma': 'no-cache',
+                      'Expires': '0',
+                      'X-Request-ID': `validation-fourth-${uniqueTimestamp}`, // Add unique request ID
+                    },
+                    timeout: 10000, // Add timeout
+                  });
+
+                  // If this fourth attempt succeeds, wait and break out
+                  await sleep(2000);
+                  break;
+                } catch (fourthValidationError) {
+                  // Continue to the next attempt or to the main request cycle
+                  await sleep(2500); // Increased wait time
+                }
               }
             }
           }
@@ -528,54 +572,117 @@ export class WithingsApi implements INodeType {
         // Track if we've successfully refreshed the token during retries
         let tokenRefreshed = false;
 
-        // Try multiple direct token refresh attempts before starting the main request cycle
+        // Ultra-aggressive direct token refresh attempts before starting the main request cycle
         // This is critical for ensuring a fresh token is available
-        for (let directRefreshAttempt = 0; directRefreshAttempt < 3; directRefreshAttempt++) {
+        for (let directRefreshAttempt = 0; directRefreshAttempt < 5; directRefreshAttempt++) { // Increased to 5 attempts
           try {
+            // No direct logging in TypeScript code - n8n doesn't support console.log
+            // We'll use the this.logger object if it becomes available in the future
+
+            // Generate a unique timestamp with randomization to prevent any caching
+            const uniqueTimestamp = Date.now() + Math.floor(Math.random() * 1000);
+
             // This is a direct token refresh attempt using a simple endpoint
             await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', {
               method: 'GET',
               url: 'https://wbsapi.withings.net/v2/user',
               qs: {
                 action: 'get', // Using a simpler endpoint
-                _ts: Date.now(), // Add timestamp to prevent caching
+                _ts: uniqueTimestamp, // Add unique timestamp to prevent caching
               },
               json: true,
               headers: {
                 'Accept': 'application/json',
-                'Cache-Control': 'no-cache, no-store', // Prevent caching
+                'Cache-Control': 'no-cache, no-store, must-revalidate', // Enhanced cache prevention
+                'Pragma': 'no-cache',
+                'Expires': '0',
+                'X-Request-ID': `direct-refresh-${uniqueTimestamp}`, // Add unique request ID
               },
+              timeout: 10000, // Add timeout to prevent hanging
             });
+
             tokenRefreshed = true;
-            await sleep(2000); // Wait longer after a successful refresh
+            // Success - no direct logging in TypeScript code
+
+            await sleep(2500); // Increased wait time after a successful refresh
             break; // Success, exit the loop
           } catch (directRefreshError) {
-            // If this is the last attempt, try a different endpoint as a last resort
-            if (directRefreshAttempt === 2) {
+            // Direct refresh error - no direct logging in TypeScript code
+
+            // Define a set of fallback endpoints to try based on the attempt number
+            const fallbackEndpoints = [
+              // First fallback: Sleep endpoint
+              {
+                url: 'https://wbsapi.withings.net/v2/sleep',
+                action: 'get',
+                waitTime: 2000,
+              },
+              // Second fallback: Measure endpoint
+              {
+                url: 'https://wbsapi.withings.net/v2/measure',
+                action: 'getactivity',
+                waitTime: 2200,
+              },
+              // Third fallback: User endpoint with different action
+              {
+                url: 'https://wbsapi.withings.net/v2/user',
+                action: 'getdevice',
+                waitTime: 2500,
+              },
+              // Fourth fallback: Notify endpoint
+              {
+                url: 'https://wbsapi.withings.net/notify',
+                action: 'list',
+                waitTime: 3000,
+              },
+            ];
+
+            // If this is not the last attempt, try a fallback endpoint
+            if (directRefreshAttempt < 4) {
+              const fallbackEndpoint = fallbackEndpoints[directRefreshAttempt];
+
               try {
-                // Try a completely different endpoint as a last resort
+                // Fallback attempt - no direct logging in TypeScript code
+
+                // Generate a unique timestamp with randomization
+                const uniqueTimestamp = Date.now() + Math.floor(Math.random() * 1000);
+
+                // Try the fallback endpoint
                 await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', {
                   method: 'GET',
-                  url: 'https://wbsapi.withings.net/v2/sleep',
+                  url: fallbackEndpoint.url,
                   qs: {
-                    action: 'get',
-                    _ts: Date.now(),
+                    action: fallbackEndpoint.action,
+                    _ts: uniqueTimestamp, // Add unique timestamp to prevent caching
                   },
                   json: true,
                   headers: {
                     'Accept': 'application/json',
-                    'Cache-Control': 'no-cache, no-store',
+                    'Cache-Control': 'no-cache, no-store, must-revalidate', // Enhanced cache prevention
+                    'Pragma': 'no-cache',
+                    'Expires': '0',
+                    'X-Request-ID': `fallback-refresh-${directRefreshAttempt}-${uniqueTimestamp}`, // Add unique request ID
                   },
+                  timeout: 10000, // Add timeout to prevent hanging
                 });
+
                 tokenRefreshed = true;
-                await sleep(2000);
-              } catch (lastResortError) {
-                // If all direct refresh attempts fail, wait longer before continuing to the main request cycle
-                await sleep(2000);
+                // Fallback success - no direct logging in TypeScript code
+
+                await sleep(fallbackEndpoint.waitTime); // Wait based on the endpoint
+                break; // Success, exit the loop
+              } catch (fallbackError) {
+                // Fallback error - no direct logging in TypeScript code
+
+                // Wait between direct refresh attempts with increasing delay and jitter
+                const jitter = Math.random() * 0.4 + 0.8; // Random value between 0.8 and 1.2
+                const delay = Math.floor(1200 * Math.pow(1.5, directRefreshAttempt) * jitter);
+                await sleep(delay);
               }
             } else {
-              // Wait between direct refresh attempts with increasing delay
-              await sleep(1000 * (directRefreshAttempt + 1));
+              // All direct refresh attempts failed - no direct logging in TypeScript code
+
+              await sleep(3000); // Increased wait time
             }
           }
         }
@@ -698,17 +805,25 @@ export class WithingsApi implements INodeType {
             if (isTokenError) {
               retries++;
 
-              // Log detailed information about the error for debugging
-              // this.logger.debug(`[Withings] Token error detected (attempt ${retries}/${maxRetries}): "${error.message}"`);
+              // Token error detected - no direct logging in TypeScript code
+              // We would log error details here if logging was available
 
               if (retries >= maxRetries) {
+                // Create a detailed error message with all the context information
+                // No need to reference request options in the error message
+                const detailedErrorMessage = `Failed after ${maxRetries} attempts: ${error.message}.
+                Error type: ${error.name || 'Unknown'}, Status code: ${error.statusCode || 'N/A'}.
+                Token refresh status: ${tokenRefreshed ? 'Refreshed' : 'Not refreshed'}.
+
+                The token may be invalid or revoked. Please try the following:
+                1. Reconnect your Withings account in the credentials
+                2. Ensure your Withings Developer account is active
+                3. Check that your application has the required scopes
+                4. Verify that your Withings account is active and properly configured
+                5. Try again in a few minutes as Withings API may be experiencing temporary issues`;
+
                 throw new NodeApiError(this.getNode(), error, {
-                  message: `Failed after ${maxRetries} attempts: ${error.message}. The token may be invalid or revoked. Please try the following:
-                  1. Reconnect your Withings account in the credentials
-                  2. Ensure your Withings Developer account is active
-                  3. Check that your application has the required scopes
-                  4. Verify that your Withings account is active and properly configured
-                  5. Try again in a few minutes as Withings API may be experiencing temporary issues`
+                  message: detailedErrorMessage
                 });
               }
 
