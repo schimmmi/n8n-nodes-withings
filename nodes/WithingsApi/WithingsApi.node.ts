@@ -17,6 +17,7 @@ export class WithingsApi implements INodeType {
     version: 1,
     subtitle: '={{ $parameter["operation"] + ": " + $parameter["resource"] }}',
     description: 'Withings API Integration',
+    icon: 'file:withings.svg',
     defaults: {
       name: 'Withings API',
     },
