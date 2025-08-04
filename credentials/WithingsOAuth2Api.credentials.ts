@@ -11,7 +11,7 @@ import {
 import * as https from 'https';
 import * as process from 'process';
 
-import { generateSignature, getNonce } from '../utils/withings';
+import { generateSignature, getNonce, formatScope } from '../utils/withings';
 
 export class WithingsOAuth2Api implements ICredentialType {
   name = 'withingsOAuth2Api';
@@ -83,6 +83,11 @@ export class WithingsOAuth2Api implements ICredentialType {
       // Use type assertion to tell TypeScript that body is an object with properties
       const bodyObj = requestOptions.body as Record<string, any>;
       bodyObj.action = 'requesttoken';
+
+      // Format scope with user. prefix if scope is present
+      if (bodyObj.scope) {
+        bodyObj.scope = formatScope(bodyObj.scope as string);
+      }
 
       // Add headers to prevent caching issues
       if (!requestOptions.headers) {
