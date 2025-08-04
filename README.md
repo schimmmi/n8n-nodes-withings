@@ -115,6 +115,7 @@ Most operations support the following parameters:
 
 ## Version History
 
+- 0.4.7: Fixed "Unable to sign without access token" error with enhanced token validation and multi-stage refresh strategy
 - 0.4.6: Improved refresh token handling with explicit refresh token grant type and better token synchronization
 - 0.4.5: Enhanced token validation and authentication with pre-request validation and improved error handling
 - 0.4.4: Fixed "Unable to sign without access token" error with improved token synchronization

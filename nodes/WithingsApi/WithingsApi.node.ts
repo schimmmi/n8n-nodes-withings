@@ -465,10 +465,28 @@ export class WithingsApi implements INodeType {
             },
           });
           // If successful, token is valid
-          await sleep(300); // Wait a bit before the main request
+          await sleep(500); // Wait a bit longer before the main request to ensure token is fully synchronized
         } catch (validationError) {
           // Token might be invalid, but we'll continue with the retry logic
-          await sleep(500); // Wait longer before starting the retry cycle
+          await sleep(1000); // Wait even longer before starting the retry cycle
+
+          // Try to force a token refresh immediately
+          try {
+            await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', {
+              method: 'GET',
+              url: 'https://wbsapi.withings.net/v2/user',
+              qs: { action: 'getdevice' },
+              json: true,
+              headers: {
+                'Accept': 'application/json',
+              },
+            });
+            // If successful, wait again to ensure token is ready
+            await sleep(500);
+          } catch (secondValidationError) {
+            // Still failed, but we'll continue with the retry logic
+            await sleep(1000);
+          }
         }
 
         while (retries < maxRetries) {
@@ -487,7 +505,7 @@ export class WithingsApi implements INodeType {
             response = await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', options);
             break; // Success, exit the loop
           } catch (error) {
-            // Check if this is a token expiration error
+            // Check if this is a token expiration error - expanded detection patterns
             if (error.message && (
                 error.message.toLowerCase().includes('token') ||
                 error.message.toLowerCase().includes('sign') ||
@@ -495,7 +513,13 @@ export class WithingsApi implements INodeType {
                 error.message.toLowerCase().includes('unauthorized') ||
                 error.message.toLowerCase().includes('expired') ||
                 error.message.toLowerCase().includes('authentication') ||
-                error.message.toLowerCase().includes('credentials')
+                error.message.toLowerCase().includes('credentials') ||
+                error.message.toLowerCase().includes('access') ||
+                error.message.toLowerCase().includes('permission') ||
+                error.message.toLowerCase().includes('invalid') ||
+                error.message.toLowerCase().includes('oauth') ||
+                error.message.toLowerCase().includes('401') ||
+                error.message.toLowerCase().includes('403')
             )) {
               retries++;
 
@@ -511,10 +535,15 @@ export class WithingsApi implements INodeType {
               // Log token error (commented out as console.log is not available in this context)
               // For debugging, uncomment: this.logger.debug(`Token error detected: "${error.message}". Retrying in ${delay}ms (attempt ${retries}/${maxRetries})`);
 
-              // Try to force a token refresh by making a simple test request
-              if (retries === 1) {
+              // Enhanced token refresh strategy with multiple approaches
+              // Try different refresh strategies based on retry count
+              if (retries <= maxRetries - 1) {
+                // Calculate delay with increasing duration for each retry
+                const refreshDelay = Math.min(1000 * Math.pow(2, retries - 1), 5000);
+                await sleep(refreshDelay);
+
                 try {
-                  // This will trigger a token refresh if needed
+                  // First approach: Standard refresh request
                   await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', {
                     method: 'GET',
                     url: 'https://wbsapi.withings.net/v2/user',
@@ -524,24 +553,47 @@ export class WithingsApi implements INodeType {
                       'Accept': 'application/json',
                     },
                   });
+                  // If successful, wait to ensure token is properly synchronized
+                  await sleep(500);
                 } catch (refreshError) {
-                  // If refresh token attempt fails, try a different approach
-                  // Wait longer to allow the built-in token refresh mechanism to work
-                  await sleep(2000);
+                  // If first refresh attempt fails, try a different endpoint
+                  await sleep(1000);
 
-                  // Make another validation request to trigger the built-in refresh
                   try {
+                    // Second approach: Try a different endpoint
                     await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', {
                       method: 'GET',
-                      url: 'https://wbsapi.withings.net/v2/user',
-                      qs: { action: 'getdevice' },
+                      url: 'https://wbsapi.withings.net/v2/measure',
+                      qs: { action: 'getactivity' },
                       json: true,
                       headers: {
                         'Accept': 'application/json',
                       },
                     });
+                    // If successful, wait to ensure token is properly synchronized
+                    await sleep(500);
                   } catch (secondRefreshError) {
-                    // Ignore errors from the second refresh attempt
+                    // If second refresh attempt fails, try one more approach
+                    await sleep(1500);
+
+                    try {
+                      // Third approach: Try a simpler endpoint with minimal parameters
+                      await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', {
+                        method: 'GET',
+                        url: 'https://wbsapi.withings.net/v2/user',
+                        qs: { action: 'get' },
+                        json: true,
+                        headers: {
+                          'Accept': 'application/json',
+                        },
+                      });
+                      // If successful, wait longer to ensure token is properly synchronized
+                      await sleep(1000);
+                    } catch (thirdRefreshError) {
+                      // All refresh attempts failed, but we'll continue with the retry logic
+                      // Wait longer before the next main request attempt
+                      await sleep(2000);
+                    }
                   }
                 }
               }
