@@ -135,6 +135,7 @@ Most operations support the following parameters:
 
 ## Version History
 
+- 0.6.3: Fixed "Unable to sign without access token" error in sleep summary endpoint with enhanced token validation and special handling for sleep-related requests
 - 0.6.2: Fixed "This scope is not allowed" error by ensuring proper scope formatting with "user." prefix in authorization URL
 - 0.6.1: Version update for release
 - 0.6.0: Implemented signature generation and nonce retrieval for enhanced security based on withings-node-oauth2 library

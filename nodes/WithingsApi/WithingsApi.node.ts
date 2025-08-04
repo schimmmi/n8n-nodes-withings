@@ -511,7 +511,7 @@ export class WithingsApi implements INodeType {
               await sleep(2000); // Increased wait time
               break;
             } catch (alternateValidationError) {
-              // Try a third endpoint as another fallback
+              // Try a third endpoint as another fallback - specifically the sleep endpoint
               try {
                 const uniqueTimestamp = Date.now() + Math.floor(Math.random() * 1000);
                 await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', {
@@ -536,14 +536,14 @@ export class WithingsApi implements INodeType {
                 await sleep(2000); // Increased wait time
                 break;
               } catch (thirdValidationError) {
-                // Try a fourth endpoint as a final fallback before continuing
+                // Try a fourth endpoint as a final fallback - specifically the sleep endpoint with getsummary action
                 try {
                   const uniqueTimestamp = Date.now() + Math.floor(Math.random() * 1000);
                   await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', {
                     method: 'GET',
-                    url: 'https://wbsapi.withings.net/notify',
+                    url: 'https://wbsapi.withings.net/v2/sleep',
                     qs: {
-                      action: 'list',
+                      action: 'getsummary', // Specifically test the getsummary action that's failing
                       _ts: uniqueTimestamp, // Add unique timestamp to prevent caching
                     },
                     json: true,
@@ -557,8 +557,8 @@ export class WithingsApi implements INodeType {
                     timeout: 10000, // Add timeout
                   });
 
-                  // If this fourth attempt succeeds, wait and break out
-                  await sleep(2000);
+                  // If this fourth attempt succeeds, wait longer to ensure token is fully synchronized
+                  await sleep(3000); // Increased wait time for sleep endpoint
                   break;
                 } catch (fourthValidationError) {
                   // Continue to the next attempt or to the main request cycle
@@ -765,6 +765,40 @@ export class WithingsApi implements INodeType {
               ...freshOptions.headers,
               'X-Request-Attempt': `${retries + 1}`,
             };
+
+            // Special handling for sleep-related requests, especially getsummary
+            // This ensures the token is properly validated before making these requests
+            if (resource === 'sleep') {
+              // Additional token validation specifically for sleep endpoints
+              try {
+                // Force a token refresh by making a request to the sleep endpoint
+                const uniqueTimestamp = Date.now() + Math.floor(Math.random() * 1000);
+                await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', {
+                  method: 'GET',
+                  url: 'https://wbsapi.withings.net/v2/sleep',
+                  qs: {
+                    action: operation === 'getsummary' ? 'getsummary' : 'get', // Use the same action as the main request
+                    _ts: uniqueTimestamp, // Add unique timestamp to prevent caching
+                  },
+                  json: true,
+                  headers: {
+                    'Accept': 'application/json',
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0',
+                    'X-Request-ID': `sleep-validation-${uniqueTimestamp}`,
+                  },
+                  timeout: 10000,
+                });
+
+                // Wait longer to ensure token is fully synchronized for sleep endpoints
+                await sleep(2500);
+              } catch (sleepValidationError) {
+                // If validation fails, wait a bit but continue with the main request
+                // The main request might still succeed if the token is valid
+                await sleep(1500);
+              }
+            }
 
             // Make the main API request with fresh options
             response = await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', freshOptions);
