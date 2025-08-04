@@ -1,39 +1,26 @@
 import {
   ICredentialType,
   INodeProperties,
-  IAuthenticateGeneric,
   ICredentialTestRequest,
+  Icon,
 } from 'n8n-workflow';
 
 export class WithingsOAuth2Api implements ICredentialType {
   name = 'withingsOAuth2Api';
   displayName = 'Withings OAuth2 API';
+  description = 'OAuth2 authentication for Withings API with custom token exchange';
   documentationUrl = 'https://developer.withings.com/oauth2/';
+  icon: Icon = 'file:../nodes/WithingsApi/withings.svg';
   extends = ['oAuth2Api'];
   properties: INodeProperties[] = [
     {
-      displayName: 'Client ID',
-      name: 'clientId',
-      type: 'string',
-      default: '',
-    },
-    {
-      displayName: 'Client Secret',
-      name: 'clientSecret',
-      type: 'string',
-      typeOptions: {
-        password: true,
-      },
-      default: '',
-    },
-    {
-      displayName: 'OAuth2 Flow',
-      name: 'oauth2Flow',
+      displayName: 'Grant Type',
+      name: 'grantType',
       type: 'hidden',
       default: 'authorizationCode',
     },
     {
-      displayName: 'Auth URL',
+      displayName: 'Authorization URL',
       name: 'authUrl',
       type: 'hidden',
       default: 'https://account.withings.com/oauth2_user/authorize2',
@@ -42,48 +29,48 @@ export class WithingsOAuth2Api implements ICredentialType {
       displayName: 'Access Token URL',
       name: 'accessTokenUrl',
       type: 'hidden',
-      default: 'https://wbsapi.withings.net/v2/oauth2?action=requesttoken',
+      default: 'https://wbsapi.withings.net/v2/oauth2',
+    },
+    {
+      displayName: 'Client ID',
+      name: 'clientId',
+      type: 'string',
+      required: true,
+      default: '',
+      description: 'The Client ID from your Withings Developer Account',
+    },
+    {
+      displayName: 'Client Secret',
+      name: 'clientSecret',
+      type: 'string',
+      typeOptions: {
+        password: true,
+      },
+      required: true,
+      default: '',
+      description: 'The Client Secret from your Withings Developer Account',
     },
     {
       displayName: 'Scope',
       name: 'scope',
       type: 'string',
       default: 'user.info,user.metrics,user.activity,user.sleepevents',
-    },
-    {
-      displayName: 'Authentication',
-      name: 'authentication',
-      type: 'hidden',
-      default: 'body',
-    },
-    {
-      displayName: 'Token Type',
-      name: 'tokenType',
-      type: 'hidden',
-      default: 'Bearer',
-    },
-    {
-      displayName: 'Action',
-      name: 'action',
-      type: 'hidden',
-      default: 'requesttoken',
-    },
-    {
-      displayName: 'Grant Type',
-      name: 'grantType',
-      type: 'hidden',
-      default: 'authorization_code',
+      description: 'Comma-separated list of scopes. Common scopes: user.info, user.metrics, user.activity, user.sleepevents',
     },
   ];
 
-  // Use Bearer token authentication for API requests
-  authenticate: IAuthenticateGeneric = {
-    type: 'generic',
-    properties: {
-      headers: {
-        Authorization: '=Bearer {{$credentials.accessToken}}',
+  // Override tokenDataPostReceiveProcess to add Withings-specific parameters
+  tokenDataPostReceiveProcess = {
+    includeCredentialsOnRefreshOnBody: true,
+    preSend: [
+      {
+        // Add action=requesttoken parameter to token request
+        type: 'body',
+        properties: {
+          action: 'requesttoken',
+        },
       },
-    },
+    ],
   };
 
   test: ICredentialTestRequest = {

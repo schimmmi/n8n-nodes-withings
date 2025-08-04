@@ -38,6 +38,16 @@ For Docker-based n8n installations, you can use the [n8n-docker-custom](https://
 6. Configure the scopes as needed (default: user.info,user.metrics,user.activity,user.sleepevents)
 7. Complete the OAuth2 flow by connecting to your Withings account
 
+### Withings OAuth2 Specifics
+
+The Withings API has some special requirements for OAuth2 authentication:
+
+- The token request requires an additional `action=requesttoken` parameter
+- Authentication for API requests uses Bearer token in the Authorization header
+- Token exchange requires specific formatting of the request body
+
+This node handles these requirements automatically through a custom authentication implementation.
+
 ## Usage
 
 The Withings API node provides access to various health and fitness data from your Withings account. Here's how to use it:
@@ -90,6 +100,8 @@ Most operations support the following parameters:
 
 ## Version History
 
+- 0.3.7: Changed credential type from genericAuth to oAuth2Api to enable Connect button
+- 0.3.6: Implemented special Withings OAuth2 requirements with custom token exchange
 - 0.3.5: Fixed empty Access Token URL field in credentials
 - 0.3.4: Fixed "Unable to sign without access token" error in OAuth2 authentication
 - 0.3.3: Made OAuth2 URLs hidden in the credentials UI for cleaner interface
