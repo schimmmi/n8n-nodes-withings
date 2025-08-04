@@ -1,6 +1,8 @@
 import {
   ICredentialType,
   INodeProperties,
+  IAuthenticateGeneric,
+  ICredentialTestRequest,
 } from 'n8n-workflow';
 
 export class WithingsOAuth2Api implements ICredentialType {
@@ -52,7 +54,7 @@ export class WithingsOAuth2Api implements ICredentialType {
       displayName: 'Authentication',
       name: 'authentication',
       type: 'hidden',
-      default: 'header',
+      default: 'body',
     },
     {
       displayName: 'Token Type',
@@ -60,5 +62,40 @@ export class WithingsOAuth2Api implements ICredentialType {
       type: 'hidden',
       default: 'Bearer',
     },
+    {
+      displayName: 'Action',
+      name: 'action',
+      type: 'hidden',
+      default: 'requesttoken',
+    },
+    {
+      displayName: 'Grant Type',
+      name: 'grantType',
+      type: 'hidden',
+      default: 'authorization_code',
+    },
   ];
+
+  authenticate: IAuthenticateGeneric = {
+    type: 'generic',
+    properties: {
+      qs: {
+        action: '={{$credentials.action}}',
+        client_id: '={{$credentials.clientId}}',
+        client_secret: '={{$credentials.clientSecret}}',
+        grant_type: '={{$credentials.grantType}}',
+      },
+    },
+  };
+
+  test: ICredentialTestRequest = {
+    request: {
+      baseURL: 'https://wbsapi.withings.net',
+      url: '/v2/user',
+      method: 'GET',
+      qs: {
+        action: 'getdevice',
+      },
+    },
+  };
 }
