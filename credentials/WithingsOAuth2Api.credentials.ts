@@ -62,8 +62,8 @@ export class WithingsOAuth2Api implements ICredentialType {
       displayName: 'Scope',
       name: 'scope',
       type: 'string',
-      default: 'info,metrics,activity,sleepevents',
-      description: 'Comma-separated list of scopes without the "user." prefix (added automatically). Common scopes: info, metrics, activity, sleepevents',
+      default: 'user.info,user.metrics,user.activity,user.sleepevents',
+      description: 'Comma-separated list of scopes with the "user." prefix. Common scopes: user.info, user.metrics, user.activity, user.sleepevents',
     },
   ];
 
@@ -84,9 +84,13 @@ export class WithingsOAuth2Api implements ICredentialType {
       const bodyObj = requestOptions.body as Record<string, any>;
       bodyObj.action = 'requesttoken';
 
-      // Format scope with user. prefix if scope is present
+      // Only format scope if it doesn't already have the user. prefix
       if (bodyObj.scope) {
-        bodyObj.scope = formatScope(bodyObj.scope as string);
+        const scopeStr = bodyObj.scope as string;
+        // Check if the scope already has the user. prefix
+        if (!scopeStr.includes('user.')) {
+          bodyObj.scope = formatScope(scopeStr);
+        }
       }
 
       // Add headers to prevent caching issues

@@ -135,6 +135,7 @@ Most operations support the following parameters:
 
 ## Version History
 
+- 0.6.2: Fixed "This scope is not allowed" error by ensuring proper scope formatting with "user." prefix in authorization URL
 - 0.6.1: Version update for release
 - 0.6.0: Implemented signature generation and nonce retrieval for enhanced security based on withings-node-oauth2 library
 - 0.5.0: Implemented super-aggressive token handling with extreme validation and enhanced error recovery
