@@ -1,6 +1,7 @@
 import { IHttpRequestOptions } from 'n8n-workflow';
-import * as crypto from 'crypto';
-import * as process from 'process';
+// Use Node.js built-in modules with type declarations
+import crypto from 'node:crypto';
+import process from 'node:process';
 
 /**
  * Format scope for Withings OAuth2

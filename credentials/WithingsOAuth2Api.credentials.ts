@@ -7,8 +7,9 @@ import {
   IHttpRequestOptions,
   IDataObject,
 } from 'n8n-workflow';
-import * as https from 'https';
-import * as process from 'process';
+// Use Node.js built-in modules with type declarations
+import https from 'node:https';
+import process from 'node:process';
 
 import { generateSignature, getNonce } from '../utils/withings';
 
