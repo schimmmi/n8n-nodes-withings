@@ -434,72 +434,93 @@ export class WithingsApi implements INodeType {
           }
         }
 
-        // Make the request
-        const options: IHttpRequestOptions = {
-          method: 'GET',
-          url: `https://wbsapi.withings.net${endpoint}`,
-          qs,
-          json: true,
-          // Ensure proper headers are set for authentication
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-          },
-        };
+        // Define base request options (will be used to create fresh options for each attempt)
+        const baseEndpoint = endpoint;
+        const baseQs = { ...qs };
 
         let response;
         let retries = 0;
         const maxRetries = 5; // Increased max retries
         const baseDelay = 1000; // Base delay in milliseconds
 
-        // Aggressive token validation and refresh before starting the request cycle
-        // First, force a token refresh by making a simple request
-        for (let preValidationAttempt = 0; preValidationAttempt < 3; preValidationAttempt++) {
+        // Ultra-aggressive token validation and refresh before starting the request cycle
+        // First, force a token refresh by making a simple request with multiple attempts
+        for (let preValidationAttempt = 0; preValidationAttempt < 5; preValidationAttempt++) { // Increased to 5 attempts
           try {
             // Make a simple request to validate and refresh the token
             await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', {
               method: 'GET',
               url: 'https://wbsapi.withings.net/v2/user',
-              qs: { action: 'getdevice' },
+              qs: {
+                action: 'getdevice',
+                _ts: Date.now(), // Add timestamp to prevent caching
+              },
               json: true,
               headers: {
                 'Accept': 'application/json',
+                'Cache-Control': 'no-cache, no-store', // Prevent caching
               },
             });
 
-            // If successful, token is valid - wait to ensure token is fully synchronized
-            await sleep(800);
+            // If successful, token is valid - wait longer to ensure token is fully synchronized
+            await sleep(1500); // Increased wait time
 
             // Success - break out of the pre-validation loop
             break;
           } catch (validationError) {
             // If this is the last attempt and it failed, wait longer before continuing
-            if (preValidationAttempt === 2) {
-              await sleep(2000);
+            if (preValidationAttempt === 4) { // Adjusted for 5 attempts
+              await sleep(3000); // Increased wait time
               continue;
             }
 
             // Wait between validation attempts with increasing delay
-            await sleep(1000 * (preValidationAttempt + 1));
+            await sleep(1500 * (preValidationAttempt + 1)); // Increased wait time
 
             // Try a different endpoint for the next validation attempt
             try {
+              // Try a different endpoint with timestamp to prevent caching
               await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', {
                 method: 'GET',
                 url: 'https://wbsapi.withings.net/v2/measure',
-                qs: { action: 'getactivity' },
+                qs: {
+                  action: 'getactivity',
+                  _ts: Date.now(), // Add timestamp to prevent caching
+                },
                 json: true,
                 headers: {
                   'Accept': 'application/json',
+                  'Cache-Control': 'no-cache, no-store', // Prevent caching
                 },
               });
 
-              // If this alternate request succeeds, wait and break out
-              await sleep(1000);
+              // If this alternate request succeeds, wait longer and break out
+              await sleep(1500); // Increased wait time
               break;
             } catch (alternateValidationError) {
-              // Continue to the next attempt or to the main request cycle
-              await sleep(1500);
+              // Try a third endpoint as another fallback
+              try {
+                await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', {
+                  method: 'GET',
+                  url: 'https://wbsapi.withings.net/v2/sleep',
+                  qs: {
+                    action: 'get',
+                    _ts: Date.now(), // Add timestamp to prevent caching
+                  },
+                  json: true,
+                  headers: {
+                    'Accept': 'application/json',
+                    'Cache-Control': 'no-cache, no-store', // Prevent caching
+                  },
+                });
+
+                // If this third attempt succeeds, wait and break out
+                await sleep(1500);
+                break;
+              } catch (thirdValidationError) {
+                // Continue to the next attempt or to the main request cycle
+                await sleep(2000); // Increased wait time
+              }
             }
           }
         }
@@ -507,24 +528,77 @@ export class WithingsApi implements INodeType {
         // Track if we've successfully refreshed the token during retries
         let tokenRefreshed = false;
 
-        // Try to directly refresh the token once before starting the main request cycle
-        try {
-          // This is a direct token refresh attempt using a simple endpoint
-          await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', {
+        // Try multiple direct token refresh attempts before starting the main request cycle
+        // This is critical for ensuring a fresh token is available
+        for (let directRefreshAttempt = 0; directRefreshAttempt < 3; directRefreshAttempt++) {
+          try {
+            // This is a direct token refresh attempt using a simple endpoint
+            await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', {
+              method: 'GET',
+              url: 'https://wbsapi.withings.net/v2/user',
+              qs: {
+                action: 'get', // Using a simpler endpoint
+                _ts: Date.now(), // Add timestamp to prevent caching
+              },
+              json: true,
+              headers: {
+                'Accept': 'application/json',
+                'Cache-Control': 'no-cache, no-store', // Prevent caching
+              },
+            });
+            tokenRefreshed = true;
+            await sleep(2000); // Wait longer after a successful refresh
+            break; // Success, exit the loop
+          } catch (directRefreshError) {
+            // If this is the last attempt, try a different endpoint as a last resort
+            if (directRefreshAttempt === 2) {
+              try {
+                // Try a completely different endpoint as a last resort
+                await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', {
+                  method: 'GET',
+                  url: 'https://wbsapi.withings.net/v2/sleep',
+                  qs: {
+                    action: 'get',
+                    _ts: Date.now(),
+                  },
+                  json: true,
+                  headers: {
+                    'Accept': 'application/json',
+                    'Cache-Control': 'no-cache, no-store',
+                  },
+                });
+                tokenRefreshed = true;
+                await sleep(2000);
+              } catch (lastResortError) {
+                // If all direct refresh attempts fail, wait longer before continuing to the main request cycle
+                await sleep(2000);
+              }
+            } else {
+              // Wait between direct refresh attempts with increasing delay
+              await sleep(1000 * (directRefreshAttempt + 1));
+            }
+          }
+        }
+
+        // Create a fresh copy of the options for each attempt to avoid any potential reference issues
+        const createFreshOptions = (): IHttpRequestOptions => {
+          return {
             method: 'GET',
-            url: 'https://wbsapi.withings.net/v2/user',
-            qs: { action: 'get' }, // Using a simpler endpoint
+            url: `https://wbsapi.withings.net${baseEndpoint}`,
+            qs: {
+              ...baseQs,
+              _ts: Date.now(), // Add timestamp to prevent caching
+            },
             json: true,
             headers: {
               'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'Cache-Control': 'no-cache, no-store', // Prevent caching
+              'Pragma': 'no-cache', // Additional cache prevention
+              'X-Request-Attempt': '', // Will be set for each attempt
             },
-          });
-          tokenRefreshed = true;
-          await sleep(1000); // Wait longer after a successful refresh
-        } catch (directRefreshError) {
-          // If direct refresh fails, continue to the main request cycle
-          await sleep(500);
-        }
+          };
+        };
 
         while (retries < maxRetries) {
           try {
@@ -535,103 +609,185 @@ export class WithingsApi implements INodeType {
               const delay = Math.floor(baseDelay * Math.pow(2, retries - 1) * jitter);
               await sleep(delay);
 
-              // If we haven't successfully refreshed the token yet, try again before this retry
-              if (!tokenRefreshed && retries > 1) {
-                try {
-                  await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', {
-                    method: 'GET',
-                    url: 'https://wbsapi.withings.net/v2/user',
-                    qs: { action: 'get' },
-                    json: true,
-                    headers: {
-                      'Accept': 'application/json',
-                    },
-                  });
-                  tokenRefreshed = true;
-                  await sleep(1000); // Wait longer after a successful refresh
-                } catch (retryRefreshError) {
-                  // Continue with the main request even if refresh fails
-                  await sleep(500);
-                }
+              // Force token refresh before each retry attempt
+              // This is critical for ensuring a fresh token is available
+              try {
+                // Try a different endpoint for each retry to maximize chances of success
+                const refreshEndpoints = [
+                  { url: 'https://wbsapi.withings.net/v2/user', action: 'get' },
+                  { url: 'https://wbsapi.withings.net/v2/user', action: 'getdevice' },
+                  { url: 'https://wbsapi.withings.net/v2/measure', action: 'getactivity' },
+                  { url: 'https://wbsapi.withings.net/v2/sleep', action: 'get' },
+                ];
+
+                // Select an endpoint based on the retry count
+                const endpoint = refreshEndpoints[retries % refreshEndpoints.length];
+
+                await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', {
+                  method: 'GET',
+                  url: endpoint.url,
+                  qs: {
+                    action: endpoint.action,
+                    _ts: Date.now(), // Add timestamp to prevent caching
+                  },
+                  json: true,
+                  headers: {
+                    'Accept': 'application/json',
+                    'Cache-Control': 'no-cache, no-store', // Prevent caching
+                    'Pragma': 'no-cache', // Additional cache prevention
+                  },
+                });
+
+                tokenRefreshed = true;
+                // Wait longer after a successful refresh to ensure token is fully synchronized
+                await sleep(2000);
+              } catch (retryRefreshError) {
+                // If refresh fails, wait a bit but continue with the main request
+                await sleep(1000);
               }
             } else {
               // Increased initial delay to ensure token is ready and properly synchronized
-              await sleep(800);
+              await sleep(1500); // Increased from 800ms
             }
 
-            // Add a timestamp to the query string to avoid caching issues
-            options.qs = {
-              ...options.qs,
-              _ts: Date.now(),
+            // Create fresh options for each attempt
+            const freshOptions = createFreshOptions();
+
+            // Add additional headers for this specific request
+            freshOptions.headers = {
+              ...freshOptions.headers,
+              'X-Request-Attempt': `${retries + 1}`,
             };
 
-            response = await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', options);
+            // Make the main API request with fresh options
+            response = await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', freshOptions);
+
+            // Success - wait a moment to ensure any side effects are complete
+            await sleep(500);
             break; // Success, exit the loop
           } catch (error) {
-            // Check if this is a token expiration error - expanded detection patterns
-            if (error.message && (
-                error.message.toLowerCase().includes('token') ||
-                error.message.toLowerCase().includes('sign') ||
-                error.message.toLowerCase().includes('auth') ||
-                error.message.toLowerCase().includes('unauthorized') ||
-                error.message.toLowerCase().includes('expired') ||
-                error.message.toLowerCase().includes('authentication') ||
-                error.message.toLowerCase().includes('credentials') ||
-                error.message.toLowerCase().includes('access') ||
-                error.message.toLowerCase().includes('permission') ||
-                error.message.toLowerCase().includes('invalid') ||
-                error.message.toLowerCase().includes('oauth') ||
-                error.message.toLowerCase().includes('401') ||
-                error.message.toLowerCase().includes('403')
-            )) {
+            // Ultra-aggressive error detection and handling for token-related issues
+            // Check for ANY possible token, authentication, or authorization related error
+            const errorMsg = (error.message || '').toLowerCase();
+            const isTokenError =
+                // Direct token issues
+                errorMsg.includes('token') ||
+                errorMsg.includes('sign') ||
+                errorMsg.includes('auth') ||
+                errorMsg.includes('unauthorized') ||
+                errorMsg.includes('expired') ||
+                errorMsg.includes('authentication') ||
+                errorMsg.includes('credentials') ||
+                errorMsg.includes('access') ||
+                errorMsg.includes('permission') ||
+                errorMsg.includes('invalid') ||
+                errorMsg.includes('oauth') ||
+                // HTTP status code indicators
+                errorMsg.includes('401') ||
+                errorMsg.includes('403') ||
+                // Additional patterns that might indicate auth issues
+                errorMsg.includes('denied') ||
+                errorMsg.includes('reject') ||
+                errorMsg.includes('login') ||
+                errorMsg.includes('signature') ||
+                errorMsg.includes('identity') ||
+                errorMsg.includes('verify') ||
+                errorMsg.includes('key') ||
+                errorMsg.includes('secret');
+
+            if (isTokenError) {
               retries++;
+
+              // Log detailed information about the error for debugging
+              // this.logger.debug(`[Withings] Token error detected (attempt ${retries}/${maxRetries}): "${error.message}"`);
 
               if (retries >= maxRetries) {
                 throw new NodeApiError(this.getNode(), error, {
                   message: `Failed after ${maxRetries} attempts: ${error.message}. The token may be invalid or revoked. Please try the following:
                   1. Reconnect your Withings account in the credentials
                   2. Ensure your Withings Developer account is active
-                  3. Check that your application has the required scopes`
+                  3. Check that your application has the required scopes
+                  4. Verify that your Withings account is active and properly configured
+                  5. Try again in a few minutes as Withings API may be experiencing temporary issues`
                 });
               }
 
-              // Log token error (commented out as console.log is not available in this context)
-              // For debugging, uncomment: this.logger.debug(`Token error detected: "${error.message}". Retrying in ${delay}ms (attempt ${retries}/${maxRetries})`);
-
-              // Enhanced token refresh strategy with multiple approaches and better error handling
+              // Ultra-aggressive token refresh strategy with multiple approaches
               if (retries <= maxRetries - 1) {
-                // Calculate delay with increasing duration for each retry
-                const refreshDelay = Math.min(1000 * Math.pow(2, retries - 1), 5000);
+                // Calculate delay with increasing duration for each retry and some randomization
+                const jitter = Math.random() * 0.4 + 0.8; // Random value between 0.8 and 1.2
+                const refreshDelay = Math.min(1500 * Math.pow(2, retries - 1) * jitter, 8000);
+
+                // this.logger.debug(`[Withings] Waiting ${refreshDelay}ms before retry attempt ${retries + 1}`);
                 await sleep(refreshDelay);
 
                 // Reset tokenRefreshed flag for this retry cycle
                 tokenRefreshed = false;
 
-                // Try multiple refresh strategies in sequence with better error handling
+                // Force credential refresh by attempting multiple different API endpoints
+                // This maximizes the chance of getting a valid token
+
+                // Define a comprehensive set of refresh strategies with increasing wait times
                 const refreshStrategies = [
-                  // Strategy 1: Standard user endpoint with getdevice action
+                  // Strategy 1: User endpoint with getdevice action (most reliable)
                   {
                     url: 'https://wbsapi.withings.net/v2/user',
-                    qs: { action: 'getdevice', _ts: Date.now() },
-                    waitTime: 800,
+                    qs: { action: 'getdevice', _ts: Date.now() + Math.random() },
+                    waitTime: 1200,
+                    headers: {
+                      'Accept': 'application/json',
+                      'Cache-Control': 'no-cache, no-store, must-revalidate',
+                      'Pragma': 'no-cache',
+                      'Expires': '0',
+                    },
                   },
-                  // Strategy 2: Measure endpoint with getactivity action
+                  // Strategy 2: Measure endpoint (different service)
                   {
                     url: 'https://wbsapi.withings.net/v2/measure',
-                    qs: { action: 'getactivity', _ts: Date.now() },
-                    waitTime: 1000,
+                    qs: { action: 'getactivity', _ts: Date.now() + Math.random() },
+                    waitTime: 1500,
+                    headers: {
+                      'Accept': 'application/json',
+                      'Cache-Control': 'no-cache, no-store, must-revalidate',
+                      'Pragma': 'no-cache',
+                      'Expires': '0',
+                    },
                   },
-                  // Strategy 3: Simpler user endpoint with get action
+                  // Strategy 3: User endpoint with simpler action
                   {
                     url: 'https://wbsapi.withings.net/v2/user',
-                    qs: { action: 'get', _ts: Date.now() },
-                    waitTime: 1200,
+                    qs: { action: 'get', _ts: Date.now() + Math.random() },
+                    waitTime: 1800,
+                    headers: {
+                      'Accept': 'application/json',
+                      'Cache-Control': 'no-cache, no-store, must-revalidate',
+                      'Pragma': 'no-cache',
+                      'Expires': '0',
+                    },
                   },
-                  // Strategy 4: Sleep endpoint as a last resort
+                  // Strategy 4: Sleep endpoint (different service as last resort)
                   {
                     url: 'https://wbsapi.withings.net/v2/sleep',
-                    qs: { action: 'get', _ts: Date.now() },
-                    waitTime: 1500,
+                    qs: { action: 'get', _ts: Date.now() + Math.random() },
+                    waitTime: 2000,
+                    headers: {
+                      'Accept': 'application/json',
+                      'Cache-Control': 'no-cache, no-store, must-revalidate',
+                      'Pragma': 'no-cache',
+                      'Expires': '0',
+                    },
+                  },
+                  // Strategy 5: Notification endpoint (completely different API area as final resort)
+                  {
+                    url: 'https://wbsapi.withings.net/notify',
+                    qs: { action: 'list', _ts: Date.now() + Math.random() },
+                    waitTime: 2500,
+                    headers: {
+                      'Accept': 'application/json',
+                      'Cache-Control': 'no-cache, no-store, must-revalidate',
+                      'Pragma': 'no-cache',
+                      'Expires': '0',
+                    },
                   },
                 ];
 
@@ -641,27 +797,28 @@ export class WithingsApi implements INodeType {
                     // Add increasing delay between strategies
                     await sleep(strategy.waitTime);
 
+                    // this.logger.debug(`[Withings] Trying refresh strategy: ${strategy.url} with action ${strategy.qs.action}`);
+
                     // Make the refresh request with this strategy
                     await this.helpers.requestWithAuthentication.call(this, 'withingsOAuth2Api', {
                       method: 'GET',
                       url: strategy.url,
                       qs: strategy.qs,
                       json: true,
-                      headers: {
-                        'Accept': 'application/json',
-                        'Cache-Control': 'no-cache, no-store',
-                      },
+                      headers: strategy.headers,
                     });
 
                     // If we get here, the request succeeded
                     tokenRefreshed = true;
+                    // this.logger.debug(`[Withings] Token refresh succeeded with strategy: ${strategy.url}`);
 
-                    // Wait after successful refresh to ensure token is synchronized
-                    await sleep(1000);
+                    // Wait after successful refresh to ensure token is fully synchronized
+                    await sleep(2000);
 
                     // Break out of the strategy loop on success
                     break;
                   } catch (strategyError) {
+                    // this.logger.debug(`[Withings] Token refresh strategy failed: ${strategyError.message}`);
                     // Continue to the next strategy on failure
                     continue;
                   }
@@ -669,13 +826,16 @@ export class WithingsApi implements INodeType {
 
                 // If all strategies failed, wait longer before continuing
                 if (!tokenRefreshed) {
-                  await sleep(2000);
+                  // this.logger.debug(`[Withings] All token refresh strategies failed, waiting before next attempt`);
+                  await sleep(3000);
                 }
               }
 
-              continue; // Try again with delay at the beginning of the loop
+              // Continue to the next iteration of the main retry loop
+              continue;
             } else {
-              throw error; // Not a token error, rethrow
+              // Not a token error, rethrow with original message
+              throw error;
             }
           }
         }

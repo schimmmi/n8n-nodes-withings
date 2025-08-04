@@ -61,42 +61,76 @@ export class WithingsOAuth2Api implements ICredentialType {
   ];
 
   // Override tokenDataPostReceiveProcess to add Withings-specific parameters
+  // Withings tokens expire after 30 seconds, so we need aggressive refresh handling
   tokenDataPostReceiveProcess = {
+    // Include credentials in the refresh request body
     includeCredentialsOnRefreshOnBody: true,
+
+    // Pre-send modifications for token requests
     preSend: [
       {
-        // Add action=requesttoken parameter to token request
+        // Add action=requesttoken parameter to token request - required by Withings
         type: 'body',
         properties: {
           action: 'requesttoken',
         },
       },
+      {
+        // Add headers to prevent caching issues
+        type: 'headers',
+        properties: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+        },
+      },
     ],
+
     // Force token refresh before the 30-second expiration
-    expiresIn: 20, // Set to 20 seconds to refresh well before the 30-second expiration
+    // Set to 15 seconds to refresh well before the 30-second expiration
+    // This is more aggressive than before (was 20 seconds)
+    expiresIn: 15,
+
+    // Enable automatic token refresh
     autoRefresh: true,
+
     // Ensure proper token format and handling
     format: 'json',
     property: 'body',
+
     // Explicitly set the refresh token grant type for token refresh
     refreshGrantType: 'refresh_token',
+
     // Include the refresh token in the body of the refresh request
     includeRefreshToken: true,
+
+    // Specify the key name for the refresh token in the request
+    refreshTokenKey: 'refresh_token',
+
+    // Ensure proper scope handling during refresh
+    includeScopes: true,
   };
 
   // Define how to authenticate requests
+  // Withings requires Bearer token in the Authorization header
   authenticate: IAuthenticateGeneric = {
     type: 'generic',
     properties: {
       headers: {
+        // Use Bearer token authentication with the access token
         Authorization: '=Bearer {{$credentials.accessToken}}',
+        // Add cache prevention headers to every authenticated request
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'X-Request-Timestamp': '={{Date.now()}}', // Add timestamp to prevent caching
       },
       qs: {
-        // Include any query parameters needed for authentication
+        // Add a timestamp to query parameters to prevent caching
+        _ts: '={{Date.now()}}',
       },
     },
   };
 
+  // Define a robust test request for credential validation
   test: ICredentialTestRequest = {
     request: {
       baseURL: 'https://wbsapi.withings.net',
@@ -104,7 +138,15 @@ export class WithingsOAuth2Api implements ICredentialType {
       method: 'GET',
       qs: {
         action: 'getdevice',
+        _ts: Date.now(), // Add timestamp to prevent caching
       },
+      headers: {
+        'Accept': 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+      },
+      // Add timeout to prevent hanging
+      timeout: 10000,
     },
   };
 }
